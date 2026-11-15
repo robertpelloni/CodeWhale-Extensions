@@ -362,13 +362,13 @@ mod tests {
         LEGACY_UPDATE_VERSION_ENV,
     ];
 
-    struct ReleaseEnvGuard {
+    pub(super) struct ReleaseEnvGuard {
         previous: Vec<(&'static str, Option<OsString>)>,
         _lock: MutexGuard<'static, ()>,
     }
 
     impl ReleaseEnvGuard {
-        fn clear() -> Self {
+        pub(super) fn clear() -> Self {
             let lock = RELEASE_ENV_LOCK
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -828,29 +828,18 @@ mod tests {
 
 #[cfg(test)]
 mod env_tests {
+    use super::tests::ReleaseEnvGuard;
     use super::*;
-    use serial_test::serial;
-
-    fn clear_all_envs() {
-        unsafe {
-            std::env::remove_var(RELEASE_BASE_URL_ENV);
-            std::env::remove_var(LEGACY_RELEASE_BASE_URL_ENV);
-            std::env::remove_var(DEEPSEEK_RELEASE_BASE_URL_ENV);
-            std::env::remove_var(CNB_MIRROR_ENV);
-        }
-    }
 
     #[test]
-    #[serial]
     fn returns_none_when_no_vars_set() {
-        clear_all_envs();
+        let _env = ReleaseEnvGuard::clear();
         assert_eq!(release_base_url_from_env("1.0.0"), None);
     }
 
     #[test]
-    #[serial]
     fn prefers_primary_release_base_url() {
-        clear_all_envs();
+        let _env = ReleaseEnvGuard::clear();
         unsafe {
             std::env::set_var(RELEASE_BASE_URL_ENV, "https://primary.example.com");
             std::env::set_var(LEGACY_RELEASE_BASE_URL_ENV, "https://legacy.example.com");
@@ -862,32 +851,34 @@ mod env_tests {
     }
 
     #[test]
-    #[serial]
     fn falls_back_to_legacy_vars() {
-        clear_all_envs();
-        unsafe {
-            std::env::set_var(LEGACY_RELEASE_BASE_URL_ENV, "https://legacy.example.com");
-            std::env::set_var(DEEPSEEK_RELEASE_BASE_URL_ENV, "https://deepseek.example.com");
+        {
+            let _env = ReleaseEnvGuard::clear();
+            unsafe {
+                std::env::set_var(LEGACY_RELEASE_BASE_URL_ENV, "https://legacy.example.com");
+                std::env::set_var(DEEPSEEK_RELEASE_BASE_URL_ENV, "https://deepseek.example.com");
+            }
+            assert_eq!(
+                release_base_url_from_env("1.0.0"),
+                Some("https://legacy.example.com".to_string())
+            );
         }
-        assert_eq!(
-            release_base_url_from_env("1.0.0"),
-            Some("https://legacy.example.com".to_string())
-        );
 
-        clear_all_envs();
-        unsafe {
-            std::env::set_var(DEEPSEEK_RELEASE_BASE_URL_ENV, "https://deepseek.example.com");
+        {
+            let _env = ReleaseEnvGuard::clear();
+            unsafe {
+                std::env::set_var(DEEPSEEK_RELEASE_BASE_URL_ENV, "https://deepseek.example.com");
+            }
+            assert_eq!(
+                release_base_url_from_env("1.0.0"),
+                Some("https://deepseek.example.com".to_string())
+            );
         }
-        assert_eq!(
-            release_base_url_from_env("1.0.0"),
-            Some("https://deepseek.example.com".to_string())
-        );
     }
 
     #[test]
-    #[serial]
     fn trims_whitespace_from_env_vars() {
-        clear_all_envs();
+        let _env = ReleaseEnvGuard::clear();
         unsafe {
             std::env::set_var(RELEASE_BASE_URL_ENV, "  https://spaced.example.com  \n");
         }
@@ -898,9 +889,8 @@ mod env_tests {
     }
 
     #[test]
-    #[serial]
     fn ignores_empty_or_whitespace_only_vars() {
-        clear_all_envs();
+        let _env = ReleaseEnvGuard::clear();
         unsafe {
             std::env::set_var(RELEASE_BASE_URL_ENV, "   ");
             std::env::set_var(LEGACY_RELEASE_BASE_URL_ENV, "");
@@ -910,9 +900,8 @@ mod env_tests {
     }
 
     #[test]
-    #[serial]
     fn falls_back_to_cnb_mirror() {
-        clear_all_envs();
+        let _env = ReleaseEnvGuard::clear();
         unsafe {
             std::env::set_var(CNB_MIRROR_ENV, "1");
         }
@@ -923,9 +912,8 @@ mod env_tests {
     }
 
     #[test]
-    #[serial]
     fn explicit_url_overrides_cnb_mirror() {
-        clear_all_envs();
+        let _env = ReleaseEnvGuard::clear();
         unsafe {
             std::env::set_var(RELEASE_BASE_URL_ENV, "https://explicit.example.com");
             std::env::set_var(CNB_MIRROR_ENV, "1");

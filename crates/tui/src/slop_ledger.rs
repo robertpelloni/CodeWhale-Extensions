@@ -1286,5 +1286,6 @@ mod tests {
         assert!(summary.contains("stale_docs: 1"));
         assert!(summary.contains("tool_gaps: 1"));
         assert!(summary.contains("accepted_debt: 1"));
+        assert!(ledger.has_open_entries());
     }
 }
